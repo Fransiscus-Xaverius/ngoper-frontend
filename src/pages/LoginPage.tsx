@@ -1,7 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
-import { login, clearError } from '../store/slices/authSlice';
+import { login, clearError, fetchMe } from '../store/slices/authSlice';
 import { MaterialIcon } from '../components/ui/MaterialIcon';
 
 export function LoginPage() {
@@ -20,6 +20,7 @@ export function LoginPage() {
     
     const result = await dispatch(login({ email, password }));
     if (login.fulfilled.match(result)) {
+      dispatch(fetchMe());
       navigate('/home');
     }
   };

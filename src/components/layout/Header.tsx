@@ -5,6 +5,7 @@ import { MaterialIcon } from '../ui/MaterialIcon';
 const navLinks = [
   { label: 'Home', href: '/home' },
   { label: 'Explore', href: '/explore' },
+  { label: 'Chat', href:'/chat'},
   { label: 'Transactions', href: '/' },
 ];
 
@@ -59,7 +60,7 @@ export function Header({ variant = 'default', backButton }: HeaderProps) {
             </button>
           )}
           {!backButton?.show && (
-            <Link to="/" className="flex items-center gap-2">
+            <Link to={isLoggedIn ? "/home" : "/"} className="flex items-center gap-2">
               <h1 className="text-2xl font-black tracking-tighter text-primary-container">
                 Ngoper
               </h1>

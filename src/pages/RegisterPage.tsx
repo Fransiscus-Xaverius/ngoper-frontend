@@ -1,7 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import { useAppDispatch } from '../store/hooks';
-import { login } from '../store/slices/authSlice';
+import { login, fetchMe } from '../store/slices/authSlice';
 import { authApi } from '../api/auth';
 import { MaterialIcon } from '../components/ui/MaterialIcon';
 
@@ -41,6 +41,7 @@ export function RegisterPage() {
       
       const result = await dispatch(login({ email, password }));
       if (login.fulfilled.match(result)) {
+        dispatch(fetchMe());
         navigate('/home');
       }
     } catch (err: unknown) {

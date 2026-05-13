@@ -1,10 +1,15 @@
 import { createSlice, createAsyncThunk, type PayloadAction } from '@reduxjs/toolkit';
 import { authApi, scheduleTokenRefresh, clearTokenRefresh } from '../../api/auth';
+import apiClient from '../../api/client';
 import type { LoginRequest } from '../../api/auth';
 
 interface User {
   id: string;
   email: string;
+  name: string;
+  avatar: string;
+  location?: string;
+  role: string;
 }
 
 interface AuthState {
@@ -22,6 +27,19 @@ const initialState: AuthState = {
   isLoading: false,
   error: null,
 };
+
+export const fetchMe = createAsyncThunk(
+  'auth/fetchMe',
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await apiClient.get<User>('/v1/auth/me');
+      return response.data;
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { error?: string } } };
+      return rejectWithValue(err.response?.data?.error || 'Failed to fetch user');
+    }
+  }
+);
 
 export const login = createAsyncThunk(
   'auth/login',
@@ -77,6 +95,16 @@ const authSlice = createSlice({
       .addCase(login.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.payload as string;
+      })
+      .addCase(fetchMe.pending, (state) => {
+        state.isLoading = true;
+      })
+      .addCase(fetchMe.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.user = action.payload;
+      })
+      .addCase(fetchMe.rejected, (state) => {
+        state.isLoading = false;
       })
       .addCase(logout.fulfilled, (state) => {
         state.user = null;
