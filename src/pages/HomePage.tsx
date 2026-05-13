@@ -24,6 +24,7 @@ interface FeedPost {
   isLocked?: boolean;
   isLiked?: boolean;
   isBookmarked?: boolean;
+  allowRequests?: boolean;
 }
 
 function mapPost(post: Post): FeedPost {
@@ -46,6 +47,7 @@ function mapPost(post: Post): FeedPost {
     isLocked: post.isLocked,
     isLiked: post.isLiked,
     isBookmarked: post.isBookmarked,
+    allowRequests: post.allow_requests,
   };
 }
 
@@ -89,6 +91,8 @@ export function HomePage() {
   >([]);
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [allowRequests, setAllowRequests] = useState(false);
+  const [requestPostId, setRequestPostId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const fetchFeed = useCallback(
@@ -179,12 +183,14 @@ export function HomePage() {
         content: postContent,
         type: 'trip',
         images: imageUrls,
+        allow_requests: allowRequests,
       });
 
       const newPost = mapPost(response.data);
       setPosts((prev) => [newPost, ...prev]);
       setPostContent('');
       setUploadedImages([]);
+      setAllowRequests(false);
       setIsModalOpen(false);
     } catch (err: unknown) {
       const e = err as { response?: { data?: { error?: { message?: string } } } };
@@ -358,6 +364,7 @@ export function HomePage() {
                 onLike={handleLike}
                 onBookmark={handleBookmark}
                 onShare={handleShare}
+                onRequest={(id) => setRequestPostId(id)}
               />
             ))}
 
@@ -508,9 +515,31 @@ export function HomePage() {
                   onChange={handleImageSelect}
                 />
               </div>
+
+              {user?.role === 'jastiper' && (
+                <div className="flex items-center gap-2 mt-3 pt-3 border-t border-white/10">
+                  <input
+                    type="checkbox"
+                    id="allow-requests"
+                    checked={allowRequests}
+                    onChange={(e) => setAllowRequests(e.target.checked)}
+                    className="w-5 h-5 rounded border-white/20 bg-white/5 text-primary-container focus:ring-primary-container/50"
+                  />
+                  <label htmlFor="allow-requests" className="text-sm text-on-surface/70 cursor-pointer select-none">
+                    Enable Jastip Requests
+                  </label>
+                </div>
+              )}
             </div>
           </div>
         </div>
+      )}
+
+      {requestPostId && (
+        <RequestModal
+          postId={requestPostId}
+          onClose={() => setRequestPostId(null)}
+        />
       )}
     </div>
   );
@@ -521,11 +550,13 @@ function FeedCard({
   onLike,
   onBookmark,
   onShare,
+  onRequest,
 }: {
   post: FeedPost;
   onLike: (postId: string, isLiked: boolean) => void;
   onBookmark: (postId: string, isBookmarked: boolean) => void;
   onShare: (postId: string) => void;
+  onRequest: (postId: string) => void;
 }) {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
@@ -719,6 +750,15 @@ function FeedCard({
               I want this!
             </button>
           </div>
+          )}
+        {post.allowRequests && (
+          <button
+            className="w-full mt-2 py-2.5 border border-primary-container/50 text-primary-container rounded-lg font-bold text-sm hover:bg-primary-container/10 active:scale-[0.98] transition-all"
+            onClick={() => onRequest(post.id)}
+          >
+            <MaterialIcon name="shopping_cart" className="text-lg mr-1" />
+            Make a Request
+          </button>
         )}
 
         <div className="flex items-center justify-between pt-2">
@@ -767,6 +807,233 @@ function FeedCard({
         </div>
       </div>
     </article>
+  );
+}
+
+function RequestModal({
+  postId,
+  onClose,
+}: {
+  postId: string;
+  onClose: () => void;
+}) {
+  const [description, setDescription] = useState('');
+  const [quantity, setQuantity] = useState(1);
+  const [reqImages, setReqImages] = useState<
+    { dataUrl: string; file: File }[]
+  >([]);
+  const [reqProposedPrice, setReqProposedPrice] = useState('');
+  const [reqUploading, setReqUploading] = useState(false);
+  const [reqSubmitting, setReqSubmitting] = useState(false);
+  const [reqError, setReqError] = useState<string | null>(null);
+  const [reqSuccess, setReqSuccess] = useState(false);
+  const reqFileRef = useRef<HTMLInputElement>(null);
+
+  const handleReqImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+    Array.from(files).forEach((file) => {
+      if (reqImages.length >= 4) return;
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        if (event.target?.result) {
+          setReqImages((prev) => [
+            ...prev,
+            { dataUrl: event.target!.result as string, file },
+          ]);
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+    if (reqFileRef.current) reqFileRef.current.value = '';
+  };
+
+  const handleSubmitRequest = async () => {
+    if (!description.trim()) {
+      setReqError('Please describe what you want');
+      return;
+    }
+    setReqSubmitting(true);
+    setReqError(null);
+    try {
+      const imageUrls: string[] = [];
+      if (reqImages.length > 0) {
+        setReqUploading(true);
+        for (const img of reqImages) {
+          const res = await postsApi.uploadImage(img.file);
+          imageUrls.push(res.url);
+        }
+        setReqUploading(false);
+      }
+
+      await postsApi.createRequest(postId, {
+        description,
+        images: imageUrls,
+        quantity,
+        proposed_price: reqProposedPrice ? parseFloat(reqProposedPrice) : undefined,
+      });
+      setReqSuccess(true);
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { error?: { message?: string } } } };
+      setReqError(e.response?.data?.error?.message || 'Failed to submit request');
+    } finally {
+      setReqSubmitting(false);
+      setReqUploading(false);
+    }
+  };
+
+  if (reqSuccess) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center">
+        <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+        <div className="relative bg-surface-container-high rounded-2xl w-full max-w-md mx-4 p-8 text-center border border-white/10">
+          <MaterialIcon name="check_circle" className="text-5xl text-green-400 mb-4" />
+          <h3 className="text-xl font-bold mb-2">Request Sent!</h3>
+          <p className="text-slate-400 mb-6">
+            The jastiper will review your request and respond soon.
+          </p>
+          <button
+            className="bg-primary-container text-on-primary-container font-bold px-8 py-3 rounded-full active:scale-95 transition-all"
+            onClick={onClose}
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative bg-surface-container-high rounded-2xl w-full max-w-md mx-4 overflow-hidden shadow-2xl border border-white/10">
+        <div className="flex items-center justify-between p-4 border-b border-white/10">
+          <h3 className="font-bold text-lg">Make a Request</h3>
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-white/10 rounded-full transition-colors"
+          >
+            <MaterialIcon name="close" className="text-xl" />
+          </button>
+        </div>
+
+        <div className="p-4 space-y-4">
+          {reqError && (
+            <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm">
+              {reqError}
+            </div>
+          )}
+
+          <div>
+            <label className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-2 block">
+              What do you want?
+            </label>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value.slice(0, 500))}
+              placeholder="Describe the item, size, color, brand, etc."
+              className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-on-surface text-sm placeholder:text-slate-500 resize-none outline-none min-h-[80px]"
+              autoFocus
+            />
+            <span className="text-[10px] text-slate-500">
+              {description.length}/500
+            </span>
+          </div>
+
+          <div>
+            <label className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-2 block">
+              Quantity
+            </label>
+            <div className="flex items-center gap-2">
+              <button
+                className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center"
+                onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                disabled={quantity <= 1}
+              >
+                <MaterialIcon name="remove" className="text-sm" />
+              </button>
+              <span className="text-lg font-bold w-8 text-center">
+                {quantity}
+              </span>
+              <button
+                className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center"
+                onClick={() => setQuantity(quantity + 1)}
+              >
+                <MaterialIcon name="add" className="text-sm" />
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-2 block">
+              Your Proposed Price (USD)
+            </label>
+            <input
+              type="number"
+              value={reqProposedPrice}
+              onChange={(e) => setReqProposedPrice(e.target.value)}
+              placeholder="How much are you willing to pay?"
+              step="0.01"
+              className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-on-surface text-sm placeholder:text-slate-500 outline-none"
+            />
+          </div>
+
+          <div>
+            <label className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-2 block">
+              Reference Images
+            </label>
+            <div className="flex gap-2 flex-wrap">
+              {reqImages.map((img, idx) => (
+                <div key={idx} className="relative">
+                  <img
+                    alt={`Ref ${idx + 1}`}
+                    src={img.dataUrl}
+                    className="w-20 h-20 object-cover rounded-lg"
+                  />
+                  <button
+                    className="absolute -top-1 -right-1 bg-black/80 rounded-full p-0.5"
+                    onClick={() =>
+                      setReqImages((prev) => prev.filter((_, i) => i !== idx))
+                    }
+                  >
+                    <MaterialIcon name="close" className="text-white text-xs" />
+                  </button>
+                </div>
+              ))}
+              {reqImages.length < 4 && (
+                <button
+                  className="w-20 h-20 rounded-lg border border-dashed border-white/20 flex items-center justify-center hover:bg-white/5 transition-colors"
+                  onClick={() => reqFileRef.current?.click()}
+                >
+                  <MaterialIcon name="add" className="text-slate-500 text-2xl" />
+                </button>
+              )}
+              <input
+                ref={reqFileRef}
+                type="file"
+                accept="image/jpeg,image/png,image/gif,image/webp"
+                className="hidden"
+                onChange={handleReqImageSelect}
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="p-4 border-t border-white/10">
+          <button
+            className="w-full bg-primary-container text-on-primary-container font-bold py-3 rounded-full active:scale-[0.98] transition-all disabled:opacity-50"
+            onClick={handleSubmitRequest}
+            disabled={!description.trim() || reqSubmitting}
+          >
+            {reqSubmitting
+              ? reqUploading
+                ? 'Uploading images...'
+                : 'Sending...'
+              : 'Submit Request'}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 

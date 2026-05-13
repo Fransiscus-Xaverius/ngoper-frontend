@@ -1,5 +1,20 @@
 import axios from 'axios';
 
+let forceLogoutHandler: (() => void) | null = null;
+
+export function setForceLogoutHandler(handler: () => void) {
+  forceLogoutHandler = handler;
+}
+
+export function triggerForceLogout() {
+  if (forceLogoutHandler) {
+    forceLogoutHandler();
+  } else {
+    localStorage.removeItem('access_token');
+    window.location.href = '/login';
+  }
+}
+
 const apiClient = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8080',
   withCredentials: true,
@@ -36,12 +51,18 @@ apiClient.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
+const PUBLIC_AUTH_PATHS = ['/v1/auth/login', '/v1/auth/register', '/v1/auth/refresh'];
+
 apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
 
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    if (
+      error.response?.status === 401 &&
+      !originalRequest._retry &&
+      !PUBLIC_AUTH_PATHS.some((p) => originalRequest.url?.includes(p))
+    ) {
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject });
@@ -69,11 +90,10 @@ apiClient.interceptors.response.use(
         processQueue(null, access_token);
         originalRequest.headers.Authorization = `Bearer ${access_token}`;
         return apiClient(originalRequest);
-      } catch (refreshError) {
-        processQueue(refreshError, null);
+      } catch {
+        processQueue(new Error('refresh failed'), null);
         localStorage.removeItem('access_token');
-        window.location.href = '/login';
-        return Promise.reject(refreshError);
+        triggerForceLogout();
       } finally {
         isRefreshing = false;
       }

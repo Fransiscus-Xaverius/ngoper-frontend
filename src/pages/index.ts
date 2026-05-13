@@ -4,5 +4,7 @@ export { ExplorePage } from './ExplorePage';
 export { ProfilePage } from './ProfilePage';
 export { ChatPage } from './ChatPage';
 export { HomePage } from './HomePage';
-export { TripPage } from './TripPage';
 export { OrdersPage } from './OrdersPage';
+export { RequestsPage } from './RequestsPage';
+export { MyRequestsPage } from './MyRequestsPage';
+export { TransactionsPage } from './TransactionsPage';

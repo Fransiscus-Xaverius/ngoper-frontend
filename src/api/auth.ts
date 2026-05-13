@@ -1,4 +1,4 @@
-import apiClient from './client';
+import apiClient, { triggerForceLogout } from './client';
 
 export interface LoginRequest {
   email: string;
@@ -75,10 +75,9 @@ export function scheduleTokenRefresh(expiresIn: number) {
         const response = await authApi.refresh();
         localStorage.setItem('access_token', response.access_token);
         scheduleTokenRefresh(response.expires_in);
-      } catch (error) {
-        console.error('Auto-refresh failed:', error);
+      } catch {
         localStorage.removeItem('access_token');
-        window.location.href = '/login';
+        triggerForceLogout();
       }
     }, refreshTime);
   }

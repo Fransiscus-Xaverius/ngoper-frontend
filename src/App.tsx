@@ -1,9 +1,24 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
+import { useEffect } from 'react';
 import { Header, Footer } from './components/layout';
 import { HeroSection, TrendingGrid, TopJastipers } from './components/sections';
-import { ExplorePage, ProfilePage, ChatPage, HomePage, LoginPage, RegisterPage, OrdersPage, TripPage } from './pages';
+import { ExplorePage, ProfilePage, ChatPage, HomePage, LoginPage, RegisterPage, OrdersPage, MyRequestsPage, TransactionsPage } from './pages';
 import { ProtectedRoute } from './components/ProtectedRoute';
-import { useAppSelector } from './store/hooks';
+import { useAppDispatch, useAppSelector } from './store/hooks';
+import { logout } from './store/slices/authSlice';
+import { setForceLogoutHandler } from './api/client';
+
+function AuthSync() {
+  const dispatch = useAppDispatch();
+
+  useEffect(() => {
+    setForceLogoutHandler(() => {
+      dispatch(logout());
+    });
+  }, [dispatch]);
+
+  return null;
+}
 
 function LandingPage() {
   return (
@@ -46,18 +61,20 @@ function JastiperRoute({ children }: { children: React.ReactNode }) {
 
 function App() {
   return (
-    <Routes>
-      {/* Public routes - accessible without authentication */}
-      <Route path="/" element={<LandingPage />} />
-      <Route 
-        path="/login" 
-        element={
-          <AuthRoute>
-            <LoginPage />
-          </AuthRoute>
-        } 
-      />
-      <Route 
+    <>
+      <AuthSync />
+      <Routes>
+        {/* Public routes - accessible without authentication */}
+        <Route path="/" element={<LandingPage />} />
+        <Route 
+          path="/login" 
+          element={
+            <AuthRoute>
+              <LoginPage />
+            </AuthRoute>
+          } 
+        />
+        <Route 
         path="/register" 
         element={
           <AuthRoute>
@@ -99,16 +116,6 @@ function App() {
           </ProtectedRoute>
         } 
       />
-      
-      <Route
-        path="/trips"
-        element={
-          <ProtectedRoute>
-            <TripPage />
-          </ProtectedRoute>
-        }
-      />
-      
       <Route 
         path="/orders" 
         element={
@@ -117,10 +124,27 @@ function App() {
           </JastiperRoute>
         } 
       />
+      <Route 
+        path="/my-requests" 
+        element={
+          <ProtectedRoute>
+            <MyRequestsPage />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/transactions" 
+        element={
+          <ProtectedRoute>
+            <TransactionsPage />
+          </ProtectedRoute>
+        } 
+      />
 
       {/* Catch all - redirect to home or login based on auth state */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    </>
   );
 }
 
