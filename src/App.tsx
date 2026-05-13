@@ -1,7 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { Header, Footer } from './components/layout';
 import { HeroSection, TrendingGrid, TopJastipers } from './components/sections';
-import { ExplorePage, ProfilePage, ChatPage, HomePage, LoginPage, RegisterPage, TripPage } from './pages';
+import { ExplorePage, ProfilePage, ChatPage, HomePage, LoginPage, RegisterPage, OrdersPage, TripPage } from './pages';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { useAppSelector } from './store/hooks';
 
@@ -26,6 +26,21 @@ function AuthRoute({ children }: { children: React.ReactNode }) {
     return <Navigate to="/home" replace />;
   }
   
+  return <>{children}</>;
+}
+
+function JastiperRoute({ children }: { children: React.ReactNode }) {
+  const isAuthenticated = useAppSelector((state) => state.auth.isAuthenticated);
+  const user = useAppSelector((state) => state.auth.user);
+  
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (user?.role !== 'jastiper') {
+    return <Navigate to="/home" replace />;
+  }
+
   return <>{children}</>;
 }
 
@@ -92,6 +107,15 @@ function App() {
             <TripPage />
           </ProtectedRoute>
         }
+      />
+      
+      <Route 
+        path="/orders" 
+        element={
+          <JastiperRoute>
+            <OrdersPage />
+          </JastiperRoute>
+        } 
       />
 
       {/* Catch all - redirect to home or login based on auth state */}

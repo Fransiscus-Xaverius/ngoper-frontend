@@ -5,3 +5,4 @@ export { ProfilePage } from './ProfilePage';
 export { ChatPage } from './ChatPage';
 export { HomePage } from './HomePage';
 export { TripPage } from './TripPage';
+export { OrdersPage } from './OrdersPage';
