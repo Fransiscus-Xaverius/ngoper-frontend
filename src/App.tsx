@@ -1,7 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { Header, Footer } from './components/layout';
 import { HeroSection, TrendingGrid, TopJastipers } from './components/sections';
-import { ExplorePage, ProfilePage, ChatPage, HomePage, LoginPage, RegisterPage } from './pages';
+import { ExplorePage, ProfilePage, ChatPage, HomePage, LoginPage, RegisterPage, TripPage } from './pages';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { useAppSelector } from './store/hooks';
 
@@ -83,6 +83,15 @@ function App() {
             <ChatPage />
           </ProtectedRoute>
         } 
+      />
+      
+      <Route
+        path="/trips"
+        element={
+          <ProtectedRoute>
+            <TripPage />
+          </ProtectedRoute>
+        }
       />
 
       {/* Catch all - redirect to home or login based on auth state */}

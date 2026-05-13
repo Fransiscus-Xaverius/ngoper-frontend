@@ -7,6 +7,7 @@ const navLinks = [
   { label: 'Explore', href: '/explore' },
   { label: 'Chat', href:'/chat'},
   { label: 'Transactions', href: '/' },
+  { label: 'Trips', href: '/trips' },
 ];
 
 interface HeaderProps {
