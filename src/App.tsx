@@ -1,7 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { Header, Footer } from './components/layout';
 import { HeroSection, TrendingGrid, TopJastipers } from './components/sections';
-import { ExplorePage, ProfilePage, ChatPage, HomePage, LoginPage, RegisterPage } from './pages';
+import { ExplorePage, ProfilePage, ChatPage, HomePage, LoginPage, RegisterPage, OrdersPage } from './pages';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { useAppSelector } from './store/hooks';
 
@@ -26,6 +26,21 @@ function AuthRoute({ children }: { children: React.ReactNode }) {
     return <Navigate to="/home" replace />;
   }
   
+  return <>{children}</>;
+}
+
+function JastiperRoute({ children }: { children: React.ReactNode }) {
+  const isAuthenticated = useAppSelector((state) => state.auth.isAuthenticated);
+  const user = useAppSelector((state) => state.auth.user);
+  
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (user?.role !== 'jastiper') {
+    return <Navigate to="/home" replace />;
+  }
+
   return <>{children}</>;
 }
 
@@ -82,6 +97,14 @@ function App() {
           <ProtectedRoute>
             <ChatPage />
           </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/orders" 
+        element={
+          <JastiperRoute>
+            <OrdersPage />
+          </JastiperRoute>
         } 
       />
 
