@@ -1,0 +1,596 @@
+openapi: 3.0.3
+info:
+  title: Ngoper Backend API
+  description: REST API for chat application with authentication and real-time messaging support
+  version: 1.0.0
+  contact:
+    name: API Support
+
+servers:
+  - url: http://localhost:8080
+    description: Development server
+  - url: https://api.yourdomain.com
+    description: Production server
+
+tags:
+  - name: Health
+    description: Health check endpoints
+  - name: Authentication
+    description: Login, logout, and token refresh
+  - name: Chat
+    description: Conversations and messaging
+  - name: Attachments
+    description: File upload and management
+  - name: WebSocket
+    description: Real-time communication
+
+paths:
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Health check
+      description: Returns the health status of the API
+      operationId: healthCheck
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+
+  /v1/auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: User login
+      description: Authenticate user with email and password. Returns access token and sets refresh token cookie.
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                  description: User's email address
+                  example: user@example.com
+                password:
+                  type: string
+                  format: password
+                  description: User's password
+                  example: securePassword123
+      responses:
+        '200':
+          description: Login successful
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+                example: refresh_token=xxx; Max-Age=604800; Path=/v1/auth/refresh; HttpOnly; Secure; SameSite=Lax
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /v1/auth/refresh:
+    post:
+      tags:
+        - Authentication
+      summary: Refresh access token
+      description: Use refresh token cookie to obtain a new access token
+      operationId: refreshToken
+      responses:
+        '200':
+          description: Token refreshed successfully
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+                example: refresh_token=xxx; Max-Age=604800; Path=/v1/auth/refresh; HttpOnly; Secure; SameSite=Lax
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RefreshResponse'
+        '401':
+          description: Invalid or expired refresh token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /v1/auth/logout:
+    post:
+      tags:
+        - Authentication
+      summary: User logout
+      description: Revoke the current access token and refresh token
+      operationId: logout
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Logout successful
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+                example: refresh_token=; Max-Age=-1; Path=/v1/auth/refresh
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: logged out
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /v1/chat/ws-ticket:
+    post:
+      tags:
+        - WebSocket
+      summary: Generate WebSocket ticket
+      description: Generate a JWT ticket for establishing WebSocket connection
+      operationId: generateWSTicket
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Ticket generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WSTicketResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /v1/conversations:
+    post:
+      tags:
+        - Chat
+      summary: Create a new conversation
+      description: Create a new chat conversation with optional participants
+      operationId: createConversation
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateConversationRequest'
+      responses:
+        '201':
+          description: Conversation created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateConversationResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    get:
+      tags:
+        - Chat
+      summary: Get user's conversations
+      description: Retrieve all conversations the authenticated user is part of
+      operationId: getConversations
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of conversations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Conversation'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /v1/conversations/{conversationId}/messages:
+    get:
+      tags:
+        - Chat
+      summary: Get messages in a conversation
+      description: Retrieve paginated messages from a conversation
+      operationId: getMessages
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: conversationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: UUID of the conversation
+        - name: cursor
+          in: query
+          schema:
+            type: string
+          description: Pagination cursor from previous request
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+            maximum: 100
+          description: Maximum number of messages to return
+      responses:
+        '200':
+          description: List of messages
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageListResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Not a participant of this conversation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    post:
+      tags:
+        - Chat
+      summary: Send a message
+      description: Send a new message to a conversation
+      operationId: sendMessage
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: conversationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: UUID of the conversation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendMessageRequest'
+      responses:
+        '201':
+          description: Message sent successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Not a participant of this conversation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /v1/attachments:
+    post:
+      tags:
+        - Attachments
+      summary: Upload an attachment
+      description: Upload a file to use in chat messages
+      operationId: uploadAttachment
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: File to upload (max 10MB)
+      responses:
+        '201':
+          description: File uploaded successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttachmentResponse'
+        '400':
+          description: Invalid file or file size exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /v1/attachments/{attachmentId}:
+    get:
+      tags:
+        - Attachments
+      summary: Get attachment info
+      description: Get metadata for an uploaded attachment
+      operationId: getAttachment
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: attachmentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: UUID of the attachment
+      responses:
+        '200':
+          description: Attachment info
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  attachment_id:
+                    type: string
+                  message:
+                    type: string
+        '400':
+          description: Invalid attachment ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT access token obtained from login
+
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error message
+          example: invalid credentials
+
+    LoginResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+          description: JWT access token
+          example: eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...
+        expires_in:
+          type: integer
+          description: Token expiration time in seconds
+          example: 3600
+
+    RefreshResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+          description: New JWT access token
+          example: eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...
+        expires_in:
+          type: integer
+          description: Token expiration time in seconds
+          example: 3600
+
+    WSTicketResponse:
+      type: object
+      properties:
+        ticket:
+          type: string
+          description: JWT ticket for WebSocket connection
+          example: eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...
+        expires_in:
+          type: integer
+          description: Ticket expiration time in seconds
+          example: 30
+
+    CreateConversationRequest:
+      type: object
+      required:
+        - type
+      properties:
+        type:
+          type: string
+          description: Type of conversation (e.g., "direct", "group")
+          example: direct
+        participant_ids:
+          type: array
+          items:
+            type: string
+          description: List of user UUIDs to add as participants
+          example: ["550e8400-e29b-41d4-a716-446655440000"]
+        name:
+          type: string
+          description: Optional name for the conversation
+          example: My Chat
+
+    CreateConversationResponse:
+      type: object
+      properties:
+        conversation_id:
+          type: string
+          format: uuid
+          description: UUID of the created conversation
+          example: 550e8400-e29b-41d4-a716-446655440000
+
+    Conversation:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Conversation UUID
+        type:
+          type: string
+          description: Conversation type
+        created_by:
+          type: string
+          format: uuid
+          description: UUID of user who created the conversation
+        created_at:
+          type: string
+          format: date-time
+          description: Creation timestamp
+
+    SendMessageRequest:
+      type: object
+      required:
+        - content
+      properties:
+        content:
+          type: string
+          description: Message content
+          example: Hello, world!
+
+    MessageResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Message UUID
+        conversation_id:
+          type: string
+          format: uuid
+          description: Conversation UUID
+        sender_id:
+          type: string
+          format: uuid
+          description: Sender's user UUID
+        content:
+          type: string
+          description: Message content
+        created_at:
+          type: string
+          format: date-time
+          description: Message creation timestamp
+        edited_at:
+          type: string
+          format: date-time
+          description: Last edit timestamp (if edited)
+
+    MessageListResponse:
+      type: object
+      properties:
+        messages:
+          type: array
+          items:
+            $ref: '#/components/schemas/MessageResponse'
+        next_cursor:
+          type: string
+          description: Cursor for next page of messages (null if no more messages)
+          example: 2024-01-15T10:30:00Z
+
+    AttachmentResponse:
+      type: object
+      properties:
+        attachment_id:
+          type: string
+          format: uuid
+          description: UUID of the uploaded file
+        filename:
+          type: string
+          description: Stored filename
+        size:
+          type: integer
+          description: File size in bytes
+        content_type:
+          type: string
+          description: MIME type of the file
+          example: image/jpeg
+        url:
+          type: string
+          description: URL to access the file
+          example: /v1/attachments/550e8400-e29b-41d4-a716-446655440000

@@ -7,14 +7,25 @@
   --color-primary: #ffb3b2;
   --color-primary-container: #ff525d;
   --color-on-primary-container: #5b000f;
+  --color-on-primary: #680013;
   --color-surface: #131313;
   --color-on-surface: #e5e2e1;
   --color-surface-variant: #353534;
   --color-on-surface-variant: #e3bebc;
-  --color-outline: #aa8988;
-  --color-background: #0e0e0e;
+  --color-surface-container: #201f1f;
+  --color-surface-container-low: #1c1b1b;
   --color-surface-container-lowest: #0a0a0a;
-
+  --color-surface-container-high: #2a2a2a;
+  --color-surface-container-highest: #353534;
+  --color-surface-bright: #3a3939;
+  --color-surface-dim: #131313;
+  --color-outline: #aa8988;
+  --color-outline-variant: #5b403f;
+  --color-background: #0e0e0e;
+  --color-secondary: #c8c6c5;
+  --color-tertiary: #bcc6e6;
+  --color-error: #ffb4ab;
+  
   --font-family-sans: 'Plus Jakarta Sans', sans-serif;
 }
 

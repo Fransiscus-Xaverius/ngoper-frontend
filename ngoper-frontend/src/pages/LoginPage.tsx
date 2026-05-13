@@ -1,9 +1,28 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
+import { useAppDispatch, useAppSelector } from '../store/hooks';
+import { login, clearError } from '../store/slices/authSlice';
 import { MaterialIcon } from '../components/ui/MaterialIcon';
 
 export function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
+  
+  const dispatch = useAppDispatch();
+  const navigate = useNavigate();
+  const { isLoading, error } = useAppSelector((state) => state.auth);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    dispatch(clearError());
+    
+    const result = await dispatch(login({ email, password }));
+    if (login.fulfilled.match(result)) {
+      navigate('/home');
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-8">
@@ -20,13 +39,22 @@ export function LoginPage() {
           <h2 className="text-3xl font-black tracking-tight mb-2">Welcome back</h2>
           <p className="text-on-surface/50 mb-8">Sign in to continue your journey</p>
 
-          <form className="space-y-6">
+          {error && (
+            <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm">
+              {error}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
               <label className="text-xs font-bold uppercase tracking-widest text-on-surface/60">
                 Email
               </label>
               <input
                 type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
                 className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 focus:ring-2 focus:ring-primary-container/50 focus:border-primary-container/50 outline-none transition-all text-white placeholder:text-white/30"
                 placeholder="your@email.com"
               />
@@ -39,10 +67,13 @@ export function LoginPage() {
               <div className="relative">
                 <input
                   type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
                   className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 focus:ring-2 focus:ring-primary-container/50 focus:border-primary-container/50 outline-none transition-all text-white placeholder:text-white/30 pr-14"
                   placeholder="Enter your password"
                 />
-<button
+                <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center justify-center text-on-surface/40 hover:text-primary transition-colors"
@@ -56,6 +87,8 @@ export function LoginPage() {
               <label className="flex items-center gap-3 cursor-pointer">
                 <input
                   type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
                   className="w-5 h-5 rounded border-white/20 bg-white/5 text-primary-container focus:ring-primary-container/50 focus:ring-offset-0"
                 />
                 <span className="text-sm text-on-surface/60">Remember me</span>
@@ -67,9 +100,10 @@ export function LoginPage() {
 
             <button
               type="submit"
-              className="w-full bg-primary-container text-on-primary-container font-black py-4 rounded-2xl glow-watermelon hover:scale-[1.02] active:scale-[0.98] transition-all"
+              disabled={isLoading}
+              className="w-full bg-primary-container text-on-primary-container font-black py-4 rounded-2xl glow-watermelon hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Sign In
+              {isLoading ? 'Signing in...' : 'Sign In'}
             </button>
           </form>
 

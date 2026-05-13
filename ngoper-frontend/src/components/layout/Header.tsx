@@ -3,17 +3,20 @@ import { Link } from 'react-router-dom';
 import { MaterialIcon } from '../ui/MaterialIcon';
 
 const navLinks = [
-  { label: 'Home', href: '/' },
+  { label: 'Home', href: '/home' },
   { label: 'Explore', href: '/explore' },
-  { label: 'Jastipers', href: '/' },
-  { label: 'Pricing', href: '/' },
+  { label: 'Transactions', href: '/' },
 ];
 
 interface HeaderProps {
   variant?: 'default' | 'loggedIn';
+  backButton?: {
+    show: boolean;
+    onClick: () => void;
+  };
 }
 
-export function Header({ variant = 'default' }: HeaderProps) {
+export function Header({ variant = 'default', backButton }: HeaderProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const isLoggedIn = variant === 'loggedIn';
@@ -33,7 +36,14 @@ export function Header({ variant = 'default' }: HeaderProps) {
     <>
       <header className="fixed top-0 w-full z-40 flex justify-between items-center px-6 lg:px-8 h-20 bg-black/90 backdrop-blur-xl border-b border-white/5">
         <div className="flex items-center gap-4">
-          {isLoggedIn ? (
+          {backButton && backButton.show === true ? (
+            <button
+              onClick={backButton.onClick}
+              className="p-2 hover:bg-white/5 rounded-full transition-colors active:scale-95"
+            >
+              <MaterialIcon name="arrow_back" className="text-primary" />
+            </button>
+          ) : isLoggedIn ? (
             <button
               onClick={() => setIsMenuOpen(true)}
               className="p-2 hover:bg-white/5 rounded-full transition-colors"
@@ -48,11 +58,13 @@ export function Header({ variant = 'default' }: HeaderProps) {
               <MaterialIcon name="menu" className="text-primary" />
             </button>
           )}
-          <Link to="/" className="flex items-center gap-2">
-            <h1 className="text-2xl font-black tracking-tighter text-primary-container">
-              Ngoper
-            </h1>
-          </Link>
+          {!backButton?.show && (
+            <Link to="/" className="flex items-center gap-2">
+              <h1 className="text-2xl font-black tracking-tighter text-primary-container">
+                Ngoper
+              </h1>
+            </Link>
+          )}
         </div>
 
         {isLoggedIn ? (
