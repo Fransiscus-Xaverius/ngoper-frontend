@@ -2,7 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { useEffect } from 'react';
 import { Header, Footer } from './components/layout';
 import { HeroSection, TrendingGrid, TopJastipers } from './components/sections';
-import { ExplorePage, ProfilePage, ChatPage, HomePage, LoginPage, RegisterPage, OrdersPage, MyRequestsPage, TransactionsPage } from './pages';
+import { ExplorePage, ProfilePage, ChatPage, HomePage, LoginPage, RegisterPage, OrdersPage, MyRequestsPage, TransactionsPage, TripPage } from './pages';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { useAppDispatch, useAppSelector } from './store/hooks';
 import { logout } from './store/slices/authSlice';
@@ -137,6 +137,15 @@ function App() {
         element={
           <ProtectedRoute>
             <TransactionsPage />
+          </ProtectedRoute>
+        } 
+      />
+
+      <Route 
+        path="/trips" 
+        element={
+          <ProtectedRoute>
+            <TripPage />
           </ProtectedRoute>
         } 
       />

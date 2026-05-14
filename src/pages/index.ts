@@ -8,3 +8,4 @@ export { OrdersPage } from './OrdersPage';
 export { RequestsPage } from './RequestsPage';
 export { MyRequestsPage } from './MyRequestsPage';
 export { TransactionsPage } from './TransactionsPage';
+export { TripPage } from './TripPage';
