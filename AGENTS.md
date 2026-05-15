@@ -7,41 +7,49 @@ React 19 SPA — chat platform ("Ngoper"). Vite 8 + TypeScript 6 + Tailwind CSS 
 | Command | What it does |
 |---------|-------------|
 | `npm run dev` | Vite dev server |
-| `npm run build` | `tsc -b && vite build` (type-check via project references first) |
-| `npm run lint` | ESLint flat config on all `**/*.{ts,tsx}` |
+| `npm run build` | `tsc -b && vite build` (type-check first) |
+| `npm run lint` | ESLint flat config on `**/*.{ts,tsx}` |
 | `npm run preview` | Vite preview of built output |
+
+Build command order matters: **type-check before bundle**. No test suite exists. No CI workflows.
 
 ## Architecture
 
 - **Entry**: `src/main.tsx` — mounts `<App>` inside Redux `<Provider>` + `<BrowserRouter>`
-- **Routing** (`src/App.tsx`): public routes (`/`, `/login`, `/register`), protected routes (`/home`, `/explore`, `/profile`, `/chat`) via `<ProtectedRoute>` which redirects unauthenticated users to `/login`
-- **State**: Redux Toolkit (`src/store/`) — single `auth` slice with async thunks for login/logout; typed hooks in `src/store/hooks.ts`
-- **API**: Axios client (`src/api/client.ts`) with request interceptor for Bearer token, response interceptor with token refresh queue (queues concurrent 401 retries); base URL from `VITE_API_URL` env var, defaults to `http://localhost:8080`
-- **Auth**: JWT stored in `localStorage('access_token')`; auto-refresh scheduled via `setTimeout` at `expires_in - 60` seconds; refresh endpoint is `/v1/auth/refresh`
-- **Design**: Dark theme, Tailwind v4 CSS config in `src/index.css` (`@import "tailwindcss"` + `@theme` block), custom color tokens (watermelon palette), utility classes: `.glass-card`, `.glow-watermelon`, `.gradient-text`; `tailwind.config.js` exists but is **unused** by Tailwind v4
+- **Routing** (`src/App.tsx`): public routes (`/`, `/login`, `/register`), protected routes (`/home`, `/explore`, `/profile`, `/chat`, `/my-requests`, `/transactions`, `/trips`) via `<ProtectedRoute>`; jastiper-only `/orders` via `<JastiperRoute>`. Both redirect unauthenticated to `/login`.
+- **State**: Redux Toolkit (`src/store/`) — single `auth` slice; typed hooks (`useAppDispatch`, `useAppSelector`) in `src/store/hooks.ts`
+- **API**: Axios client (`src/api/client.ts`) — Bearer token on requests; response 401 interceptor queues concurrent retries and refreshes via `/v1/auth/refresh`. Refresh uses `withCredentials: true` (cookie-based). `PUBLIC_AUTH_PATHS` exempts login/register/refresh from retry.
+- **Auth**: JWT in `localStorage('access_token')`; auto-refresh via `setTimeout` at `expires_in - 60` seconds. `AuthSync` component in `App.tsx` wires `setForceLogoutHandler` to Redux `logout` action.
+- **Design**: Dark theme. Tailwind v4 configured via `@theme` block in `src/index.css` (watermelon palette). `tailwind.config.js` is **unused**. Utility classes: `.glass-card`, `.glow-watermelon`, `.gradient-text`. Font: Plus Jakarta Sans + Material Symbols.
+- **Dev server**: configured with `allowedHosts: ['ngoper.fransiscus.dev']` in `vite.config.ts`.
+- **Barrel exports**: `src/pages/index.ts`, `src/components/layout/index.ts`, `src/components/sections/index.ts`.
+- **Conditional classes**: `clsx` utility available.
 
 ## API docs
 
-`steering/swagger.yaml` — OpenAPI 3.0 spec for the backend. Covers auth, chat, attachments, WebSocket endpoints.
+`steering/swagger.yaml` — OpenAPI 3.0 spec. Covers auth, chat, attachments, WebSocket endpoints.
 
 ## Structure
 
 ```
 src/
-├── api/          # Axios client + auth API calls
+├── api/           # client.ts, auth.ts, posts.ts, orders.ts
+├── assets/        # hero.png, icons
 ├── components/
-│   ├── layout/   # Header, Footer
-│   ├── sections/ # HeroSection, TrendingGrid, TopJastipers
-│   └── ui/       # MaterialIcon (Google Material Symbols)
-├── pages/        # Login, Register, Home, Explore, Profile, Chat
-└── store/        # Redux store + auth slice + typed hooks
+│   ├── layout/    # Header, Footer (barrel export)
+│   ├── sections/  # HeroSection, TrendingGrid, TopJastipers (barrel export)
+│   ├── ui/        # MaterialIcon
+│   └── ProtectedRoute.tsx
+├── pages/         # 11 page components (barrel export via index.ts)
+└── store/
+    ├── index.ts   # configureStore
+    ├── hooks.ts   # useAppDispatch, useAppSelector
+    └── slices/
+        └── authSlice.ts  # login/logout/fetchMe thunks
 ```
 
-## Notes
+## TypeScript & linting quirks
 
-- No test suite exists. No CI workflows.
-- `npm run build` runs `tsc -b` (project references: `tsconfig.app.json` + `tsconfig.node.json`) — type-checking happens before bundling.
-- TypeScript strict: `noUnusedLocals`, `noUnusedParameters`, `verbatimModuleSyntax`, `erasableSyntaxOnly` are all on.
-- ESLint uses flat config (`eslint.config.js`) with `typescript-eslint`, `react-hooks`, and `react-refresh` plugins. `dist/` is globally ignored.
-- `VITE_API_URL` env var required for non-localhost backends; the app handles token refresh internally via axios interceptor, so no manual refresh logic needed in pages.
-- No `.env` files tracked in git (`.env*` gitignored).
+- Strict: `noUnusedLocals`, `noUnusedParameters`, `verbatimModuleSyntax`, `erasableSyntaxOnly` — all on. `verbatimModuleSyntax` requires `type` keyword on type-only imports.
+- ESLint flat config (`eslint.config.js`): `typescript-eslint`, `react-hooks`, `react-refresh`. `dist/` globally ignored.
+- No `.env` files tracked (`.env*` gitignored). `VITE_API_URL` env var required for non-localhost backends.
