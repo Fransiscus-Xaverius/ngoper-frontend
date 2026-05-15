@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { MaterialIcon } from '../components/ui/MaterialIcon';
+import { CameraCaptureModal } from '../components/ui/CameraCaptureModal';
 import { Header } from '../components/layout/Header';
 import { useAppSelector } from '../store/hooks';
 import { postsApi, getImageUrl, type Post } from '../api/posts';
@@ -92,6 +93,7 @@ export function HomePage() {
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [allowRequests, setAllowRequests] = useState(false);
+  const [showCamera, setShowCamera] = useState(false);
   const [requestPostId, setRequestPostId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -158,6 +160,12 @@ export function HomePage() {
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
+  };
+
+  const handleCameraCapture = (file: File, dataUrl: string) => {
+    if (uploadedImages.length >= 4) return;
+    setUploadedImages((prev) => [...prev, { dataUrl, file }]);
+    setShowCamera(false);
   };
 
   const removeImage = (index: number) => {
@@ -497,6 +505,13 @@ export function HomePage() {
                 >
                   <MaterialIcon name="image" className="text-red-500 text-xl" />
                 </button>
+                <button
+                  onClick={() => setShowCamera(true)}
+                  disabled={uploadedImages.length >= 4}
+                  className="p-2 hover:bg-white/10 rounded-full transition-colors disabled:opacity-30"
+                >
+                  <MaterialIcon name="photo_camera" className="text-red-500 text-xl" />
+                </button>
                 <button className="p-2 hover:bg-white/10 rounded-full transition-colors">
                   <MaterialIcon name="gif_box" className="text-slate-400 text-xl" />
                 </button>
@@ -533,6 +548,13 @@ export function HomePage() {
             </div>
           </div>
         </div>
+      )}
+
+      {showCamera && (
+        <CameraCaptureModal
+          onCapture={handleCameraCapture}
+          onClose={() => setShowCamera(false)}
+        />
       )}
 
       {requestPostId && (
