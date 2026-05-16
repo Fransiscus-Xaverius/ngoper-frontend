@@ -1,12 +1,42 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { createTheme, ThemeProvider } from '@mui/material';
+import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+import dayjs from 'dayjs';
 import { Header } from '../components/layout';
 import { MaterialIcon } from '../components/ui/MaterialIcon';
 import { useAppSelector } from '../store/hooks';
 import { TripCard } from '../components/trips/TripCard';
-import { TripDetail } from '../components/trips/TripDetail';
 import { tripsApi, type Trip, type ItineraryItem } from '../api/trips';
 
-type ViewState = 'list' | 'detail';
+const dateTheme = createTheme({
+  palette: { mode: 'dark' },
+  components: {
+    MuiOutlinedInput: {
+      styleOverrides: {
+        root: {
+          backgroundColor: 'rgba(255,255,255,0.05)',
+          borderRadius: '12px',
+          fontSize: '14px',
+        },
+        notchedOutline: { borderColor: 'rgba(255,255,255,0.1)' },
+        input: { padding: '12px', color: '#e2e8f0' },
+      },
+    },
+    MuiInputLabel: {
+      styleOverrides: {
+        root: { color: '#64748b', fontSize: '14px' },
+      },
+    },
+    MuiSvgIcon: {
+      styleOverrides: {
+        root: { color: '#64748b' },
+      },
+    },
+  },
+});
+
 type FilterChip = 'all' | 'upcoming' | 'ongoing' | 'completed';
 
 const filters: { key: FilterChip; label: string }[] = [
@@ -15,14 +45,6 @@ const filters: { key: FilterChip; label: string }[] = [
   { key: 'ongoing', label: 'Ongoing' },
   { key: 'completed', label: 'Completed' },
 ];
-
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
-}
 
 function CreateTripModal({ onClose }: { onClose: () => void }) {
   const [title, setTitle] = useState('');
@@ -83,20 +105,11 @@ function CreateTripModal({ onClose }: { onClose: () => void }) {
     setSubmitting(true);
     setError(null);
     try {
-      let posterUrl = '';
-      if (posterFile) {
-        posterUrl = await new Promise<string>((resolve) => {
-          const reader = new FileReader();
-          reader.onload = (e) => resolve(e.target?.result as string);
-          reader.readAsDataURL(posterFile);
-        });
-      }
-
       await tripsApi.createTrip({
         title: title.trim(),
         description: description.trim(),
         destination_country: destinationCountry.trim(),
-        poster: posterUrl,
+        poster: '',
         start_date: startDate,
         end_date: endDate,
         local_delivery_date: localDeliveryDate,
@@ -105,7 +118,7 @@ function CreateTripModal({ onClose }: { onClose: () => void }) {
         cities_visited: citiesVisited
           ? citiesVisited.split(',').map((c) => c.trim()).filter(Boolean)
           : undefined,
-      });
+      }, posterFile);
 
       onClose();
     } catch (err: unknown) {
@@ -204,41 +217,42 @@ function CreateTripModal({ onClose }: { onClose: () => void }) {
             />
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-2 block">
-                Start Date *
-              </label>
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-sm text-on-surface outline-none [color-scheme:dark]"
-              />
+          <ThemeProvider theme={dateTheme}>
+          <LocalizationProvider dateAdapter={AdapterDayjs}>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-2 block">
+                  Start Date *
+                </label>
+                <DatePicker
+                  value={startDate ? dayjs(startDate) : null}
+                  onChange={(date) => setStartDate(date ? date.format('YYYY-MM-DD') : '')}
+                  slotProps={{ textField: { size: 'small', fullWidth: true, placeholder: 'Select date' } }}
+                />
+              </div>
+              <div>
+                <label className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-2 block">
+                  Est. Return *
+                </label>
+                <DatePicker
+                  value={endDate ? dayjs(endDate) : null}
+                  onChange={(date) => setEndDate(date ? date.format('YYYY-MM-DD') : '')}
+                  slotProps={{ textField: { size: 'small', fullWidth: true, placeholder: 'Select date' } }}
+                />
+              </div>
+              <div>
+                <label className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-2 block">
+                  Local Delivery *
+                </label>
+                <DatePicker
+                  value={localDeliveryDate ? dayjs(localDeliveryDate) : null}
+                  onChange={(date) => setLocalDeliveryDate(date ? date.format('YYYY-MM-DD') : '')}
+                  slotProps={{ textField: { size: 'small', fullWidth: true, placeholder: 'Select date' } }}
+                />
+              </div>
             </div>
-            <div>
-              <label className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-2 block">
-                Est. Return *
-              </label>
-              <input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-sm text-on-surface outline-none [color-scheme:dark]"
-              />
-            </div>
-            <div>
-              <label className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-2 block">
-                Local Delivery *
-              </label>
-              <input
-                type="date"
-                value={localDeliveryDate}
-                onChange={(e) => setLocalDeliveryDate(e.target.value)}
-                className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-sm text-on-surface outline-none [color-scheme:dark]"
-              />
-            </div>
-          </div>
+          </LocalizationProvider>
+          </ThemeProvider>
 
           <div>
             <label className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-2 block">
@@ -282,12 +296,15 @@ function CreateTripModal({ onClose }: { onClose: () => void }) {
                       placeholder="City"
                       className="w-full bg-white/10 border border-white/10 rounded-lg px-3 py-2 text-sm text-on-surface placeholder:text-slate-500 outline-none"
                     />
-                    <input
-                      value={item.time}
-                      onChange={(e) => updateItinerary(idx, 'time', e.target.value)}
-                      placeholder="Time / Date"
-                      className="w-full bg-white/10 border border-white/10 rounded-lg px-3 py-2 text-sm text-on-surface placeholder:text-slate-500 outline-none"
-                    />
+                    <ThemeProvider theme={dateTheme}>
+                      <LocalizationProvider dateAdapter={AdapterDayjs}>
+                        <DatePicker
+                          value={item.time ? dayjs(item.time) : null}
+                          onChange={(date) => updateItinerary(idx, 'time', date ? date.format('YYYY-MM-DD') : '')}
+                          slotProps={{ textField: { size: 'small', fullWidth: true, placeholder: 'Date' } }}
+                        />
+                      </LocalizationProvider>
+                    </ThemeProvider>
                   </div>
                   {itinerary.length > 1 && (
                     <button
@@ -331,140 +348,16 @@ function CreateTripModal({ onClose }: { onClose: () => void }) {
   );
 }
 
-function RequestJoinModal({
-  trip,
-  onClose,
-}: {
-  trip: Trip;
-  onClose: () => void;
-}) {
-  const [message, setMessage] = useState('');
-  const [itemsDescription, setItemsDescription] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
-
-  const handleSubmit = async () => {
-    if (!message.trim()) {
-      setError('Please introduce yourself');
-      return;
-    }
-    setSubmitting(true);
-    setError(null);
-    try {
-      await tripsApi.requestToJoin(trip.id, {
-        message: message.trim(),
-        items_description: itemsDescription.trim() || undefined,
-      });
-      setSuccess(true);
-    } catch (err: unknown) {
-      const e = err as { response?: { data?: { error?: { message?: string } } } };
-      setError(e.response?.data?.error?.message || 'Failed to send request');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  if (success) {
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center">
-        <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-        <div className="relative bg-surface-container-high rounded-2xl w-full max-w-md mx-4 p-8 text-center border border-white/10">
-          <MaterialIcon name="check_circle" className="text-5xl text-green-400 mb-4" filled />
-          <h3 className="text-xl font-bold mb-2">Request Sent!</h3>
-          <p className="text-slate-400 mb-6">
-            The jastiper will review your request and respond soon.
-          </p>
-          <button
-            type="button"
-            className="bg-primary-container text-white font-bold px-8 py-3 rounded-full active:scale-95 transition-all"
-            onClick={onClose}
-          >
-            Close
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-surface-container-high rounded-2xl w-full max-w-md mx-4 overflow-hidden border border-white/10">
-        <div className="flex items-center justify-between p-4 border-b border-white/10">
-          <h3 className="font-bold text-lg">Request to Join Trip</h3>
-          <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-colors">
-            <MaterialIcon name="close" className="text-xl" />
-          </button>
-        </div>
-
-        <div className="p-4 space-y-4">
-          {error && (
-            <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm">
-              {error}
-            </div>
-          )}
-
-          <div className="glass-card rounded-xl p-3 space-y-1">
-            <p className="text-sm font-bold text-on-surface">{trip.title}</p>
-            <p className="text-xs text-slate-400">{trip.destination_country} • {formatDate(trip.start_date)} - {formatDate(trip.end_date)}</p>
-          </div>
-
-          <div>
-            <label className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-2 block">
-              Message to Jastiper *
-            </label>
-            <textarea
-              value={message}
-              onChange={(e) => setMessage(e.target.value.slice(0, 500))}
-              placeholder="Introduce yourself and tell them what you're looking for..."
-              className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-sm text-on-surface placeholder:text-slate-500 outline-none resize-none min-h-[100px]"
-              autoFocus
-            />
-            <span className="text-[10px] text-slate-500">{message.length}/500</span>
-          </div>
-
-          <div>
-            <label className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-2 block">
-              Items You Want (optional)
-            </label>
-            <textarea
-              value={itemsDescription}
-              onChange={(e) => setItemsDescription(e.target.value.slice(0, 500))}
-              placeholder="Describe items you'd like them to find..."
-              className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-sm text-on-surface placeholder:text-slate-500 outline-none resize-none min-h-[80px]"
-            />
-          </div>
-        </div>
-
-        <div className="p-4 border-t border-white/10">
-          <button
-            type="button"
-            onClick={handleSubmit}
-            disabled={!message.trim() || submitting}
-            className="w-full bg-primary-container text-white font-bold py-3 rounded-xl active:scale-[0.98] transition-all disabled:opacity-50"
-          >
-            {submitting ? 'Sending...' : 'Send Request'}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export function TripPage() {
+  const navigate = useNavigate();
   const user = useAppSelector((state) => state.auth.user);
-  const [view, setView] = useState<ViewState>('list');
   const [filter, setFilter] = useState<FilterChip>('all');
   const [trips, setTrips] = useState<Trip[]>([]);
-  const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [requestTrip, setRequestTrip] = useState<Trip | null>(null);
 
-  const userRole = user?.role;
-  const isJastiper = userRole === 'jastiper';
+  const isJastiper = user?.role === 'jastiper';
 
   const fetchTrips = useCallback(async () => {
     setLoading(true);
@@ -482,18 +375,8 @@ export function TripPage() {
   }, [filter]);
 
   useEffect(() => {
-    if (view === 'list') fetchTrips();
-  }, [fetchTrips, view]);
-
-  const handleSelectTrip = (trip: Trip) => {
-    setSelectedTrip(trip);
-    setView('detail');
-  };
-
-  const handleBack = () => {
-    setView('list');
-    setSelectedTrip(null);
-  };
+    fetchTrips();
+  }, [fetchTrips]);
 
   return (
     <div className="h-screen overflow-hidden">
@@ -501,100 +384,82 @@ export function TripPage() {
       <div className="pt-16 h-screen overflow-hidden">
         <main className="h-full overflow-y-auto no-scrollbar scroll-smooth px-4 md:px-8 py-6">
           <div className="max-w-6xl mx-auto space-y-6">
-            {view === 'list' ? (
-              <>
-                {/* Header */}
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h2 className="text-[22px] font-semibold leading-snug">Trips</h2>
-                    <p className="text-sm text-slate-500">Browse trips and find what you need</p>
-                  </div>
-                  {isJastiper && (
-                    <button
-                      type="button"
-                      onClick={() => setShowCreateModal(true)}
-                      className="bg-primary-container text-white px-5 py-2.5 rounded-xl font-bold text-sm hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
-                      style={{ boxShadow: '0 4px 15px rgba(255,82,93,0.4)' }}
-                    >
-                      <MaterialIcon name="add" className="text-lg" />
-                      Create Trip
-                    </button>
-                  )}
-                </div>
+            {/* Header */}
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-[22px] font-semibold leading-snug">Trips</h2>
+                <p className="text-sm text-slate-500">Browse trips and find what you need</p>
+              </div>
+              {isJastiper && (
+                <button
+                  type="button"
+                  onClick={() => setShowCreateModal(true)}
+                  className="bg-primary-container text-white px-5 py-2.5 rounded-xl font-bold text-sm hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
+                  style={{ boxShadow: '0 4px 15px rgba(255,82,93,0.4)' }}
+                >
+                  <MaterialIcon name="add" className="text-lg" />
+                  Create Trip
+                </button>
+              )}
+            </div>
 
-                {/* Filter Chips */}
-                <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
-                  {filters.map(({ key, label }) => (
-                    <button
-                      key={key}
-                      type="button"
-                      onClick={() => setFilter(key)}
-                      className={`px-4 py-1.5 rounded-full font-medium text-xs whitespace-nowrap transition-all ${
-                        filter === key
-                          ? 'bg-primary-container text-on-primary-container'
-                          : 'bg-surface-container-high text-slate-400 hover:bg-white/5'
-                      }`}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
+            {/* Filter Chips */}
+            <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
+              {filters.map(({ key, label }) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setFilter(key)}
+                  className={`px-4 py-1.5 rounded-full font-medium text-xs whitespace-nowrap transition-all ${
+                    filter === key
+                      ? 'bg-primary-container text-on-primary-container'
+                      : 'bg-surface-container-high text-slate-400 hover:bg-white/5'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
 
-                {/* Messages */}
-                {error && (
-                  <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm text-center">
-                    {error}
-                    <button className="ml-3 underline" onClick={fetchTrips}>Retry</button>
-                  </div>
-                )}
+            {/* Messages */}
+            {error && (
+              <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm text-center">
+                {error}
+                <button className="ml-3 underline" onClick={fetchTrips}>Retry</button>
+              </div>
+            )}
 
-                {loading && (
-                  <div className="flex justify-center py-16">
-                    <div className="w-8 h-8 border-2 border-red-500 border-t-transparent rounded-full animate-spin" />
-                  </div>
-                )}
+            {loading && (
+              <div className="flex justify-center py-16">
+                <div className="w-8 h-8 border-2 border-red-500 border-t-transparent rounded-full animate-spin" />
+              </div>
+            )}
 
-                {!loading && trips.length === 0 && !error && (
-                  <div className="text-center py-16 text-slate-500">
-                    <MaterialIcon name="flight" className="text-4xl mb-2" />
-                    <p className="text-lg font-bold">No trips found</p>
-                    <p className="text-sm">{isJastiper ? 'Create your first trip!' : 'Check back later for new trips.'}</p>
-                  </div>
-                )}
+            {!loading && trips.length === 0 && !error && (
+              <div className="text-center py-16 text-slate-500">
+                <MaterialIcon name="flight" className="text-4xl mb-2" />
+                <p className="text-lg font-bold">No trips found</p>
+                <p className="text-sm">{isJastiper ? 'Create your first trip!' : 'Check back later for new trips.'}</p>
+              </div>
+            )}
 
-                {/* Trip Cards Grid */}
-                {!loading && trips.length > 0 && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {trips.map((trip) => (
-                      <TripCard
-                        key={trip.id}
-                        trip={trip}
-                        onClick={() => handleSelectTrip(trip)}
-                      />
-                    ))}
-                  </div>
-                )}
-              </>
-            ) : selectedTrip ? (
-              <TripDetail
-                trip={selectedTrip}
-                onBack={handleBack}
-                userRole={userRole}
-                onRequestJoin={() => setRequestTrip(selectedTrip)}
-              />
-            ) : null}
+            {/* Trip Cards Grid */}
+            {!loading && trips.length > 0 && (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {trips.map((trip) => (
+                  <TripCard
+                    key={trip.id}
+                    trip={trip}
+                    onClick={() => navigate(`/trips/${trip.id}`)}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         </main>
       </div>
 
       {showCreateModal && <CreateTripModal onClose={() => { setShowCreateModal(false); fetchTrips(); }} />}
-
-      {requestTrip && (
-        <RequestJoinModal
-          trip={requestTrip}
-          onClose={() => setRequestTrip(null)}
-        />
-      )}
     </div>
   );
 }

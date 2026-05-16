@@ -16,16 +16,22 @@ function formatDate(dateStr: string): string {
   });
 }
 
+const statusOptions = ['upcoming', 'ongoing', 'completed', 'cancelled'];
+
 export function TripDetail({
   trip,
   onBack,
   userRole,
+  userId,
   onRequestJoin,
+  onUpdateStatus,
 }: {
   trip: Trip;
   onBack: () => void;
   userRole?: string;
+  userId?: string;
   onRequestJoin: () => void;
+  onUpdateStatus?: (status: string) => void;
 }) {
   const citiesFromItinerary = [...new Set(trip.itinerary.map((i) => i.location).filter(Boolean))];
 
@@ -315,7 +321,30 @@ export function TripDetail({
               )}
             </div>
 
-            {userRole !== 'jastiper' && (
+            {userRole === 'jastiper' && userId === trip.jastiper_id ? (
+              <div>
+                <label className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-2 block">
+                  Trip Status
+                </label>
+                <div className="flex gap-2 flex-wrap">
+                  {statusOptions.map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => onUpdateStatus?.(s)}
+                      disabled={s === trip.status}
+                      className={`px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest transition-all ${
+                        s === trip.status
+                          ? 'bg-primary-container text-white'
+                          : 'bg-zinc-800 text-slate-400 hover:bg-zinc-700'
+                      }`}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : (
               <button
                 type="button"
                 onClick={onRequestJoin}
